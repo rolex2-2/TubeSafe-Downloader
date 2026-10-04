@@ -1,0 +1,600 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f3f7fa;
+    color: #1e293b;
+}
+
+
+/* =========================
+   CONTAINER
+========================= */
+
+.container {
+    min-height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+header {
+    text-align: center;
+
+    padding: 35px 20px 20px;
+
+    color: #123b63;
+}
+
+.logo {
+    font-size: 38px;
+    font-weight: 700;
+
+    letter-spacing: -0.5px;
+}
+
+header p {
+    margin: 8px 0 0;
+
+    color: #64748b;
+
+    font-size: 15px;
+}
+
+
+/* =========================
+   MAIN
+========================= */
+
+main {
+    width: 100%;
+    max-width: 720px;
+
+    margin: auto;
+
+    padding: 15px 20px 30px;
+}
+
+
+/* =========================
+   CARD
+========================= */
+
+.card {
+    width: 100%;
+
+    background: #ffffff;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 18px;
+
+    padding: 30px;
+
+    box-shadow:
+        0 12px 35px
+        rgba(15, 23, 42, 0.08);
+}
+
+
+/* =========================
+   TITLE
+========================= */
+
+h1 {
+    margin: 0;
+
+    text-align: center;
+
+    color: #172033;
+
+    font-size: 28px;
+}
+
+.subtitle {
+    margin: 8px 0 25px;
+
+    text-align: center;
+
+    color: #64748b;
+
+    font-size: 14px;
+}
+
+
+/* =========================
+   URL INPUT
+========================= */
+
+.input-row {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    max-width: 600px;
+
+    margin: 0 auto;
+}
+
+input {
+    flex: 1;
+
+    min-width: 0;
+
+    height: 46px;
+
+    padding: 0 13px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    color: #1e293b;
+
+    font-size: 14px;
+
+    outline: none;
+
+    transition: 0.2s ease;
+}
+
+input::placeholder {
+    color: #94a3b8;
+}
+
+input:focus {
+    border-color: #087f8c;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(8, 127, 140, 0.10);
+}
+
+
+/* =========================
+   BUTTONS
+========================= */
+
+button {
+    height: 46px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    padding: 0 20px;
+
+    background: #087f8c;
+
+    color: #ffffff;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.1s ease,
+        opacity 0.2s ease;
+}
+
+button:hover {
+    background: #066a75;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:disabled {
+    opacity: 0.6;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   VIDEO INFORMATION
+========================= */
+
+.video-info {
+    display: flex;
+
+    align-items: center;
+
+    gap: 15px;
+
+    max-width: 600px;
+
+    margin: 20px auto 0;
+
+    padding: 12px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 11px;
+}
+
+.video-info img {
+    width: 150px;
+
+    height: 84px;
+
+    object-fit: cover;
+
+    border-radius: 7px;
+
+    background: #e2e8f0;
+}
+
+.video-info h2 {
+    margin: 0 0 5px;
+
+    color: #172033;
+
+    font-size: 17px;
+
+    line-height: 1.35;
+}
+
+.video-info p {
+    margin: 3px 0;
+
+    color: #64748b;
+
+    font-size: 13px;
+}
+
+
+/* =========================
+   FORMAT
+========================= */
+
+.formats {
+    max-width: 600px;
+
+    margin: 22px auto 0;
+}
+
+.formats label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: #334155;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+select {
+    width: 100%;
+
+    height: 46px;
+
+    padding: 0 12px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    color: #1e293b;
+
+    font-size: 14px;
+
+    outline: none;
+
+    cursor: pointer;
+}
+
+select:focus {
+    border-color: #087f8c;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(8, 127, 140, 0.10);
+}
+
+
+/* =========================
+   DOWNLOAD BUTTON
+========================= */
+
+.download-button {
+    display: block;
+
+    width: 210px;
+
+    height: 48px;
+
+    margin: 20px auto 0;
+
+    background: #0b7a42;
+
+    font-size: 16px;
+}
+
+.download-button:hover {
+    background: #086536;
+}
+
+
+/* =========================
+   PROGRESS BOX
+========================= */
+
+.progress-box {
+    max-width: 600px;
+
+    margin: 20px auto 0;
+
+    padding: 15px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 10px;
+}
+
+.progress-label {
+    display: flex;
+
+    justify-content: space-between;
+
+    margin-bottom: 8px;
+
+    color: #334155;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+.progress {
+    width: 100%;
+
+    height: 10px;
+
+    overflow: hidden;
+
+    background: #e2e8f0;
+
+    border-radius: 20px;
+}
+
+.progress-bar {
+    width: 0%;
+
+    height: 100%;
+
+    background: #0b7a42;
+
+    border-radius: 20px;
+
+    transition: width 0.3s ease;
+}
+
+#speed {
+    margin: 8px 0 0;
+
+    color: #64748b;
+
+    font-size: 12px;
+}
+
+
+/* =========================
+   RESULT
+========================= */
+
+.result {
+    max-width: 600px;
+
+    margin: 18px auto 0;
+
+    padding: 14px;
+
+    border: 1px solid #bbf7d0;
+
+    border-radius: 9px;
+
+    background: #ecfdf5;
+
+    color: #166534;
+
+    text-align: center;
+
+    font-size: 14px;
+}
+
+
+/* =========================
+   ERROR
+========================= */
+
+.error {
+    max-width: 600px;
+
+    margin: 18px auto 0;
+
+    padding: 14px;
+
+    border: 1px solid #fecaca;
+
+    border-radius: 9px;
+
+    background: #fef2f2;
+
+    color: #b91c1c;
+
+    text-align: center;
+
+    font-size: 14px;
+}
+
+
+/* =========================
+   FFMPEG WARNING
+========================= */
+
+.warning {
+    max-width: 600px;
+
+    margin: 18px auto 0;
+
+    padding: 14px;
+
+    border: 1px solid #fde68a;
+
+    border-radius: 9px;
+
+    background: #fffbeb;
+
+    color: #92400e;
+
+    font-size: 13px;
+
+    line-height: 1.5;
+}
+
+.warning strong {
+    color: #78350f;
+}
+
+
+/* =========================
+   HIDDEN
+========================= */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+    text-align: center;
+
+    padding: 20px;
+
+    color: #64748b;
+
+    font-size: 12px;
+
+    line-height: 1.6;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 650px) {
+
+    header {
+        padding: 25px 15px 15px;
+    }
+
+    .logo {
+        font-size: 32px;
+    }
+
+    header p {
+        font-size: 14px;
+    }
+
+    main {
+        padding: 10px 12px 25px;
+    }
+
+    .card {
+        padding: 20px;
+
+        border-radius: 15px;
+    }
+
+    h1 {
+        font-size: 25px;
+    }
+
+    .input-row {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+    input {
+        width: 100%;
+    }
+
+    .input-row button {
+        width: 100%;
+    }
+
+    .video-info {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+    .video-info img {
+        width: 100%;
+
+        height: auto;
+
+        max-height: 220px;
+    }
+
+    .download-button {
+        width: 100%;
+    }
+}
+
+
+/* =========================
+   SMALL PHONES
+========================= */
+
+@media (max-width: 400px) {
+
+    .card {
+        padding: 17px;
+    }
+
+    .logo {
+        font-size: 29px;
+    }
+
+    h1 {
+        font-size: 23px;
+    }
+}

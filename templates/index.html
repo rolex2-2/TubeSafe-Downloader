@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="description"
+          content="TubeSafe Downloader - simple and TV-friendly media downloader">
+
+    <title>TubeSafe Downloader</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+
+        <div class="logo">
+            📺 TubeSafe
+        </div>
+
+        <p>
+            Simple and TV-friendly video downloader
+        </p>
+
+    </header>
+
+
+    <main>
+
+        <div class="card">
+
+            <h1>Download Video</h1>
+
+            <p class="subtitle">
+                Paste a YouTube URL below
+            </p>
+
+
+            <div class="input-row">
+
+                <input
+                    type="url"
+                    id="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    autocomplete="off"
+                >
+
+                <button
+                    id="infoButton"
+                    type="button"
+                    onclick="getInfo()">
+
+                    Get Video
+
+                </button>
+
+            </div>
+
+
+            <div id="videoInfo"
+                 class="video-info hidden">
+
+                <img
+                    id="thumbnail"
+                    src=""
+                    alt="Video thumbnail">
+
+                <div>
+
+                    <h2 id="title"></h2>
+
+                    <p id="channel"></p>
+
+                    <p id="duration"></p>
+
+                </div>
+
+            </div>
+
+
+            <div class="formats">
+
+                <label for="format">
+                    Choose format
+                </label>
+
+                <select id="format">
+
+                    <option value="480p">
+                        MP4 - 480p
+                    </option>
+
+                    <option value="720p" selected>
+                        MP4 - 720p
+                    </option>
+
+                    <option value="1080p">
+                        MP4 - 1080p
+                    </option>
+
+                    <option value="tv">
+                        📺 TV Compatible MP4
+                    </option>
+
+                    <option value="mp3">
+                        🎵 MP3 Audio
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <button
+                id="downloadButton"
+                class="download-button"
+                type="button"
+                onclick="startDownload()">
+
+                Download
+
+            </button>
+
+
+            <div id="progressBox"
+                 class="progress-box hidden">
+
+                <div class="progress-label">
+
+                    <span id="status">
+                        Starting...
+                    </span>
+
+                    <span id="percent">
+                        0%
+                    </span>
+
+                </div>
+
+                <div class="progress">
+
+                    <div id="progressBar"
+                         class="progress-bar">
+                    </div>
+
+                </div>
+
+                <p id="speed"></p>
+
+            </div>
+
+
+            <div id="result"
+                 class="result hidden">
+            </div>
+
+
+            <div id="error"
+                 class="error hidden">
+            </div>
+
+
+            {% if not ffmpeg_ready %}
+
+            <div class="warning">
+
+                ⚠️ FFmpeg was not detected on this server.
+
+                <br><br>
+
+                Local Windows installation:
+
+                put
+
+                <strong>ffmpeg.exe</strong>
+
+                and
+
+                <strong>ffprobe.exe</strong>
+
+                inside:
+
+                <strong>ffmpeg/</strong>
+
+                <br><br>
+
+                The deployed Docker version installs FFmpeg
+                automatically.
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+    </main>
+
+
+    <footer>
+
+        TubeSafe Downloader
+
+        <br>
+
+        Use this tool only for content you are
+        authorized to download.
+
+    </footer>
+
+</div>
+
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+
+</html>
