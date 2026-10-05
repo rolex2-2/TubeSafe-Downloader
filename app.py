@@ -3,7 +3,7 @@ from flask import (
     render_template,
     request,
     jsonify,
-    send_from_directory
+    send_from_directory,
 )
 
 from pathlib import Path
@@ -35,7 +35,6 @@ LOCAL_FFMPEG = BASE_DIR / "ffmpeg" / "ffmpeg.exe"
 
 app = Flask(__name__)
 
-# Limit incoming JSON/request size
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
 
@@ -79,13 +78,90 @@ FFMPEG_READY = FFMPEG_PATH is not None
 
 def get_ffmpeg_directory():
     """
-    yt-dlp accepts either an FFmpeg executable or its directory.
+    Return the directory containing FFmpeg.
     """
 
     if not FFMPEG_PATH:
         return None
 
     return str(Path(FFMPEG_PATH).parent)
+
+
+# ============================================================
+# DENO / JAVASCRIPT RUNTIME
+# ============================================================
+
+def get_deno_path():
+    """
+    Find Deno.
+
+    Render Docker:
+        /root/.deno/bin/deno
+
+    Other Linux installations:
+        PATH lookup
+
+    Windows:
+        PATH lookup
+    """
+
+    possible_paths = [
+        "/root/.deno/bin/deno",
+        "/usr/local/bin/deno",
+        "/usr/bin/deno",
+    ]
+
+    for path in possible_paths:
+        if Path(path).exists():
+            return path
+
+    return shutil.which("deno")
+
+
+DENO_PATH = get_deno_path()
+
+DENO_READY = DENO_PATH is not None
+
+
+# ============================================================
+# YT-DLP COMMON OPTIONS
+# ============================================================
+
+def get_common_ytdlp_options(progress_hook=None):
+    """
+    Common yt-dlp configuration.
+
+    Current yt-dlp versions use an external JavaScript
+    runtime for YouTube challenge solving.
+
+    Deno is the recommended runtime.
+    """
+
+    options = {
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "retries": 3,
+        "fragment_retries": 3,
+        "continuedl": True,
+
+        # Allow yt-dlp to obtain EJS scripts when necessary.
+        "remote_components": ["ejs:github"],
+    }
+
+    if progress_hook:
+        options["progress_hooks"] = [
+            progress_hook
+        ]
+
+    # Explicitly tell yt-dlp which JS runtime to use.
+    if DENO_READY:
+
+        options["js_runtimes"] = {
+            "deno": DENO_PATH
+        }
+
+    return options
 
 
 # ============================================================
@@ -102,7 +178,7 @@ def clean_name(name):
     name = re.sub(
         r'[<>:"/\\|?*\x00-\x1f]',
         "_",
-        name
+        name,
     )
 
     name = name.strip(" .")
@@ -127,7 +203,7 @@ def valid_youtube_url(url):
         r"(www\.)?"
         r"(youtube\.com|youtu\.be|m\.youtube\.com)"
         r"/",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     return bool(pattern.match(url))
@@ -141,7 +217,10 @@ def set_job(job_id, **values):
 
     with jobs_lock:
 
-        current = jobs.get(job_id, {})
+        current = jobs.get(
+            job_id,
+            {},
+        )
 
         current.update(values)
 
@@ -158,7 +237,10 @@ def update_progress(job_id, data):
 
     if status == "downloading":
 
-        percent = data.get("_percent_str", "0%")
+        percent = data.get(
+            "_percent_str",
+            "0%",
+        )
 
         percent = (
             str(percent)
@@ -168,20 +250,35 @@ def update_progress(job_id, data):
 
         try:
             value = float(percent)
-        except (ValueError, TypeError):
+        except (
+            ValueError,
+            TypeError,
+        ):
             value = 0
 
-        speed = data.get("_speed_str", "")
+        speed = data.get(
+            "_speed_str",
+            "",
+        )
 
-        eta = data.get("_eta_str", "")
+        eta = data.get(
+            "_eta_str",
+            "",
+        )
 
         set_job(
             job_id,
             status="downloading",
-            progress=min(99, max(0, value)),
+            progress=min(
+                99,
+                max(
+                    0,
+                    value,
+                ),
+            ),
             message="Downloading...",
             speed=speed,
-            eta=eta
+            eta=eta,
         )
 
     elif status == "finished":
@@ -190,7 +287,7 @@ def update_progress(job_id, data):
             job_id,
             status="processing",
             progress=99,
-            message="Processing downloaded file..."
+            message="Processing downloaded file...",
         )
 
 
@@ -222,7 +319,7 @@ def run_ffmpeg_tv_compatible(src, dst):
         "-map",
         "0:a:0?",
 
-        # H.264
+        # H.264 video
         "-c:v",
         "libx264",
 
@@ -236,7 +333,7 @@ def run_ffmpeg_tv_compatible(src, dst):
         "-pix_fmt",
         "yuv420p",
 
-        # AAC
+        # AAC audio
         "-c:a",
         "aac",
 
@@ -247,13 +344,13 @@ def run_ffmpeg_tv_compatible(src, dst):
         "-movflags",
         "+faststart",
 
-        str(dst)
+        str(dst),
     ]
 
     result = subprocess.run(
         command,
         capture_output=True,
-        text=True
+        text=True,
     )
 
     if result.returncode != 0:
@@ -268,75 +365,80 @@ def run_ffmpeg_tv_compatible(src, dst):
 # DOWNLOAD JOB
 # ============================================================
 
-def download_job(job_id, url, mode, quality):
+def download_job(
+    job_id,
+    url,
+    mode,
+    quality,
+):
 
     set_job(
         job_id,
         status="starting",
         progress=0,
-        message="Starting download..."
+        message="Starting download...",
     )
-
-    temporary_files = []
 
     try:
 
         # ----------------------------------------------------
-        # Check FFmpeg
+        # FFmpeg check
         # ----------------------------------------------------
 
-        if mode in {"tv", "mp3"} and not FFMPEG_READY:
+        if not FFMPEG_READY:
 
             raise RuntimeError(
-                "FFmpeg is required for this format, "
-                "but it was not found on the server."
+                "FFmpeg was not found on the server. "
+                "The Docker deployment should install FFmpeg automatically."
             )
 
+        # ----------------------------------------------------
+        # Deno check
+        # ----------------------------------------------------
+
+        if not DENO_READY:
+
+            raise RuntimeError(
+                "Deno JavaScript runtime was not found. "
+                "It is required by current yt-dlp YouTube extraction."
+            )
 
         # ----------------------------------------------------
         # Output template
         # ----------------------------------------------------
 
         output_template = str(
-            DOWNLOAD_DIR /
-            f"{job_id}_%(title)s.%(ext)s"
+            DOWNLOAD_DIR
+            / f"{job_id}_%(title)s.%(ext)s"
         )
 
+        # ----------------------------------------------------
+        # Progress hook
+        # ----------------------------------------------------
+
+        progress_hook = lambda data: (
+            update_progress(
+                job_id,
+                data,
+            )
+        )
 
         # ----------------------------------------------------
-        # COMMON OPTIONS
+        # Common options
         # ----------------------------------------------------
 
-        common_options = {
+        common_options = get_common_ytdlp_options(
+            progress_hook
+        )
+
+        common_options.update({
 
             "outtmpl": output_template,
 
-            "noplaylist": True,
+            "ffmpeg_location":
+                get_ffmpeg_directory(),
 
-            "quiet": True,
-
-            "no_warnings": True,
-
-            "progress_hooks": [
-                lambda data:
-                update_progress(job_id, data)
-            ],
-
-            "retries": 3,
-
-            "fragment_retries": 3,
-
-            "continuedl": True,
-        }
-
-
-        # Tell yt-dlp where FFmpeg is
-        if FFMPEG_READY:
-
-            common_options["ffmpeg_location"] = (
-                get_ffmpeg_directory()
-            )
-
+        })
 
         # ----------------------------------------------------
         # MP3
@@ -345,26 +447,25 @@ def download_job(job_id, url, mode, quality):
         if mode == "mp3":
 
             options = {
-
                 **common_options,
 
-                "format": "bestaudio/best",
+                "format":
+                    "bestaudio/best",
 
                 "postprocessors": [
 
                     {
+                        "key":
+                            "FFmpegExtractAudio",
 
-                        "key": "FFmpegExtractAudio",
+                        "preferredcodec":
+                            "mp3",
 
-                        "preferredcodec": "mp3",
-
-                        "preferredquality": "192",
-
+                        "preferredquality":
+                            "192",
                     }
-
                 ],
             }
-
 
         # ----------------------------------------------------
         # VIDEO
@@ -399,35 +500,39 @@ def download_job(job_id, url, mode, quality):
             else:
 
                 format_string = (
-                    "bestvideo+bestaudio/best"
+                    "bestvideo+bestaudio/"
+                    "best"
                 )
 
-
             options = {
-
                 **common_options,
 
-                "format": format_string,
+                "format":
+                    format_string,
 
-                "merge_output_format": "mp4",
+                "merge_output_format":
+                    "mp4",
             }
-
 
         # ----------------------------------------------------
         # DOWNLOAD
         # ----------------------------------------------------
 
-        with yt_dlp.YoutubeDL(options) as ydl:
+        with yt_dlp.YoutubeDL(
+            options
+        ) as ydl:
 
             info = ydl.extract_info(
                 url,
-                download=True
+                download=True,
             )
 
             title = clean_name(
-                info.get("title", "download")
+                info.get(
+                    "title",
+                    "download",
+                )
             )
-
 
         # ----------------------------------------------------
         # FIND DOWNLOADED FILE
@@ -439,13 +544,19 @@ def download_job(job_id, url, mode, quality):
             )
         )
 
-        # Ignore partial files
         candidates = [
+
             file
+
             for file in candidates
+
             if not file.name.endswith(
-                (".part", ".ytdl")
+                (
+                    ".part",
+                    ".ytdl",
+                )
             )
+
         ]
 
         if not candidates:
@@ -454,28 +565,29 @@ def download_job(job_id, url, mode, quality):
                 "Downloaded file was not found."
             )
 
-
         source_file = max(
             candidates,
             key=lambda file:
-            file.stat().st_mtime
+            file.stat().st_mtime,
         )
 
-
         # ----------------------------------------------------
-        # TV COMPATIBLE CONVERSION
+        # TV COMPATIBLE
         # ----------------------------------------------------
 
         if mode == "tv":
 
             set_job(
                 job_id,
+
                 status="processing",
+
                 progress=99,
+
                 message=(
                     "Converting to "
                     "H.264 + AAC..."
-                )
+                ),
             )
 
             final_name = (
@@ -483,13 +595,13 @@ def download_job(job_id, url, mode, quality):
             )
 
             final_path = (
-                DOWNLOAD_DIR /
-                final_name
+                DOWNLOAD_DIR
+                / final_name
             )
 
             run_ffmpeg_tv_compatible(
                 source_file,
-                final_path
+                final_path,
             )
 
             if (
@@ -499,14 +611,12 @@ def download_job(job_id, url, mode, quality):
 
                 source_file.unlink()
 
-
         # ----------------------------------------------------
         # MP3
         # ----------------------------------------------------
 
         elif mode == "mp3":
 
-            # yt-dlp normally creates .mp3
             mp3_candidates = list(
                 DOWNLOAD_DIR.glob(
                     f"{job_id}_*.mp3"
@@ -518,13 +628,12 @@ def download_job(job_id, url, mode, quality):
                 final_path = max(
                     mp3_candidates,
                     key=lambda file:
-                    file.stat().st_mtime
+                    file.stat().st_mtime,
                 )
 
             else:
 
                 final_path = source_file
-
 
         # ----------------------------------------------------
         # STANDARD MP4
@@ -534,27 +643,36 @@ def download_job(job_id, url, mode, quality):
 
             final_path = source_file
 
-
         # ----------------------------------------------------
         # COMPLETE
         # ----------------------------------------------------
 
         set_job(
-            job_id,
-            status="complete",
-            progress=100,
-            message="Ready for download.",
-            filename=final_path.name
-        )
 
+            job_id,
+
+            status="complete",
+
+            progress=100,
+
+            message="Ready for download.",
+
+            filename=final_path.name,
+
+        )
 
     except Exception as exc:
 
         set_job(
+
             job_id,
+
             status="error",
+
             progress=0,
-            message=str(exc)
+
+            message=str(exc),
+
         )
 
 
@@ -567,7 +685,7 @@ def index():
 
     return render_template(
         "index.html",
-        ffmpeg_ready=FFMPEG_READY
+        ffmpeg_ready=FFMPEG_READY,
     )
 
 
@@ -578,42 +696,47 @@ def index():
 @app.post("/api/info")
 def video_info():
 
-    payload = request.get_json(
-        silent=True
-    ) or {}
+    payload = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
 
     url = str(
-        payload.get("url", "")
+        payload.get(
+            "url",
+            "",
+        )
     ).strip()
-
 
     if not url:
 
         return jsonify({
-            "error": "Enter a YouTube URL."
+            "error":
+                "Enter a YouTube URL."
         }), 400
-
 
     if not valid_youtube_url(url):
 
         return jsonify({
-            "error": "Please enter a valid YouTube URL."
+            "error":
+                "Please enter a valid YouTube URL."
         }), 400
-
 
     try:
 
-        options = {
+        # IMPORTANT:
+        # Use the same JS/EJS configuration
+        # here as in the actual download.
 
-            "quiet": True,
+        options = get_common_ytdlp_options()
 
-            "no_warnings": True,
-
-            "noplaylist": True,
+        options.update({
 
             "skip_download": True,
-        }
 
+        })
 
         with yt_dlp.YoutubeDL(
             options
@@ -621,9 +744,12 @@ def video_info():
 
             data = ydl.extract_info(
                 url,
-                download=False
+                download=False,
             )
 
+        # ----------------------------------------------------
+        # Duration
+        # ----------------------------------------------------
 
         duration = data.get(
             "duration_string"
@@ -639,12 +765,12 @@ def video_info():
 
                 minutes, seconds = divmod(
                     int(seconds),
-                    60
+                    60,
                 )
 
                 hours, minutes = divmod(
                     minutes,
-                    60
+                    60,
                 )
 
                 if hours:
@@ -662,19 +788,22 @@ def video_info():
                         f"{seconds:02d}"
                     )
 
+        # ----------------------------------------------------
+        # Return information
+        # ----------------------------------------------------
 
         return jsonify({
 
             "title":
                 data.get(
                     "title",
-                    "Unknown title"
+                    "Unknown title",
                 ),
 
             "thumbnail":
                 data.get(
                     "thumbnail",
-                    ""
+                    "",
                 ),
 
             "duration":
@@ -683,18 +812,21 @@ def video_info():
             "uploader":
                 data.get(
                     "uploader",
-                    "Unknown channel"
+                    "Unknown channel",
                 ),
 
             "url":
-                url
-        })
+                url,
 
+        })
 
     except Exception as exc:
 
         return jsonify({
-            "error": str(exc)
+
+            "error":
+                str(exc),
+
         }), 400
 
 
@@ -705,83 +837,85 @@ def video_info():
 @app.post("/api/download")
 def start_download():
 
-    payload = request.get_json(
-        silent=True
-    ) or {}
-
+    payload = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
 
     url = str(
-        payload.get("url", "")
+        payload.get(
+            "url",
+            "",
+        )
     ).strip()
-
 
     mode = str(
         payload.get(
             "mode",
-            "tv"
+            "tv",
         )
     )
-
 
     quality = str(
         payload.get(
             "quality",
-            "720p"
+            "720p",
         )
     )
-
 
     if not url:
 
         return jsonify({
-            "error": "Enter a YouTube URL."
+            "error":
+                "Enter a YouTube URL."
         }), 400
-
 
     if not valid_youtube_url(url):
 
         return jsonify({
-            "error": "Please enter a valid YouTube URL."
+            "error":
+                "Please enter a valid YouTube URL."
         }), 400
-
 
     if mode not in {
         "tv",
         "mp4",
-        "mp3"
+        "mp3",
     }:
 
         return jsonify({
-            "error": "Invalid download format."
+            "error":
+                "Invalid download format."
         }), 400
-
 
     if quality not in {
         "480p",
         "720p",
-        "1080p"
+        "1080p",
     }:
 
         quality = "720p"
 
-
     # --------------------------------------------------------
-    # Generate unique job ID
+    # Generate job ID
     # --------------------------------------------------------
 
     job_id = uuid.uuid4().hex
 
-
     set_job(
         job_id,
+
         status="queued",
+
         progress=0,
-        message="Queued..."
+
+        message="Queued...",
     )
 
-
     # --------------------------------------------------------
-    # Start background job
+    # Background download
     # --------------------------------------------------------
 
     thread = threading.Thread(
@@ -789,20 +923,27 @@ def start_download():
         target=download_job,
 
         args=(
+
             job_id,
+
             url,
+
             mode,
-            quality
+
+            quality,
+
         ),
 
-        daemon=True
+        daemon=True,
     )
 
     thread.start()
 
-
     return jsonify({
-        "job_id": job_id
+
+        "job_id":
+            job_id,
+
     })
 
 
@@ -815,16 +956,21 @@ def job_status(job_id):
 
     with jobs_lock:
 
-        job = jobs.get(job_id)
-
+        job = jobs.get(
+            job_id
+        )
 
     if not job:
 
         return jsonify({
-            "status": "unknown",
-            "message": "Job not found."
-        }), 404
 
+            "status":
+                "unknown",
+
+            "message":
+                "Job not found.",
+
+        }), 404
 
     return jsonify(job)
 
@@ -837,9 +983,12 @@ def job_status(job_id):
 def download_file(filename):
 
     return send_from_directory(
+
         DOWNLOAD_DIR,
+
         filename,
-        as_attachment=True
+
+        as_attachment=True,
     )
 
 
@@ -852,11 +1001,20 @@ def health():
 
     return jsonify({
 
-        "status": "ok",
+        "status":
+            "ok",
 
-        "ffmpeg": FFMPEG_READY,
+        "ffmpeg":
+            FFMPEG_READY,
 
-        "yt_dlp": yt_dlp.version.__version__
+        "deno":
+            DENO_READY,
+
+        "deno_path":
+            DENO_PATH,
+
+        "yt_dlp":
+            yt_dlp.version.__version__,
 
     })
 
@@ -870,12 +1028,15 @@ if __name__ == "__main__":
     port = int(
         os.environ.get(
             "PORT",
-            5000
+            5000,
         )
     )
 
     app.run(
+
         host="0.0.0.0",
+
         port=port,
-        debug=True
+
+        debug=True,
     )
