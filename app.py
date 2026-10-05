@@ -2,8 +2,6 @@ import os
 import uuid
 import threading
 import shutil
-import tempfile
-import atexit
 from pathlib import Path
 
 from flask import (
@@ -35,7 +33,6 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 # JOB STORAGE
 # ============================================================
 
-# IMPORTANT:
 # The application uses an in-memory jobs dictionary.
 # Therefore use ONE Gunicorn worker.
 #
@@ -43,116 +40,6 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 # gunicorn --bind 0.0.0.0:5000 --workers 1 app:app
 
 jobs = {}
-
-
-# ============================================================
-# TEMPORARY COOKIE FILE
-# ============================================================
-
-COOKIE_FILE = None
-
-
-def create_cookie_file_from_environment():
-    """
-    Read YOUTUBE_COOKIES from the environment and create
-    a temporary Netscape-format cookie file.
-
-    The cookie file is stored outside the project directory
-    and is never committed to GitHub.
-    """
-
-    global COOKIE_FILE
-
-    cookie_data = os.environ.get(
-        "YOUTUBE_COOKIES",
-        ""
-    )
-
-    if not cookie_data.strip():
-        return None
-
-    cookie_data = cookie_data.replace(
-        "\r\n",
-        "\n"
-    ).replace(
-        "\r",
-        "\n"
-    )
-
-    # Basic validation.
-    # yt-dlp expects Mozilla/Netscape cookie format.
-    first_line = cookie_data.strip().splitlines()[0]
-
-    if first_line not in [
-        "# HTTP Cookie File",
-        "# Netscape HTTP Cookie File"
-    ]:
-
-        print(
-            "WARNING: YOUTUBE_COOKIES does not appear "
-            "to be a Netscape/Mozilla cookies file."
-        )
-
-    try:
-
-        temp_file = tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="\n",
-            prefix="tubesafe_",
-            suffix="_cookies.txt",
-            delete=False
-        )
-
-        temp_file.write(cookie_data)
-
-        temp_file.flush()
-        temp_file.close()
-
-        COOKIE_FILE = temp_file.name
-
-        print(
-            "YouTube cookies loaded from "
-            "YOUTUBE_COOKIES environment variable."
-        )
-
-        return COOKIE_FILE
-
-    except Exception as error:
-
-        print(
-            "WARNING: Could not create cookie file:",
-            error
-        )
-
-        return None
-
-
-def remove_cookie_file():
-
-    global COOKIE_FILE
-
-    if not COOKIE_FILE:
-        return
-
-    try:
-
-        cookie_path = Path(
-            COOKIE_FILE
-        )
-
-        if cookie_path.exists():
-            cookie_path.unlink()
-
-    except Exception:
-        pass
-
-
-COOKIE_FILE = create_cookie_file_from_environment()
-
-atexit.register(
-    remove_cookie_file
-)
 
 
 # ============================================================
@@ -172,9 +59,7 @@ def get_ffmpeg_path():
         return str(local_ffmpeg)
 
     # Docker/Linux installation
-    system_ffmpeg = shutil.which(
-        "ffmpeg"
-    )
+    system_ffmpeg = shutil.which("ffmpeg")
 
     if system_ffmpeg:
         return system_ffmpeg
@@ -195,9 +80,7 @@ def get_ffprobe_path():
         return str(local_ffprobe)
 
     # Docker/Linux installation
-    system_ffprobe = shutil.which(
-        "ffprobe"
-    )
+    system_ffprobe = shutil.which("ffprobe")
 
     if system_ffprobe:
         return system_ffprobe
@@ -208,9 +91,7 @@ def get_ffprobe_path():
 FFMPEG_PATH = get_ffmpeg_path()
 FFPROBE_PATH = get_ffprobe_path()
 
-FFMPEG_READY = bool(
-    FFMPEG_PATH
-)
+FFMPEG_READY = bool(FFMPEG_PATH)
 
 
 # ============================================================
@@ -221,14 +102,12 @@ def get_deno_path():
 
     possible_paths = [
 
-        os.environ.get(
-            "DENO_PATH"
-        ),
+        # Optional environment variable
+        os.environ.get("DENO_PATH"),
 
+        # Docker/Linux
         "/root/.deno/bin/deno",
-
         "/usr/local/bin/deno",
-
         "/usr/bin/deno",
 
         # Windows
@@ -239,6 +118,7 @@ def get_deno_path():
             "deno.exe"
         ),
 
+        # Optional project-local Deno
         str(
             BASE_DIR /
             "deno.exe"
@@ -251,13 +131,13 @@ def get_deno_path():
             continue
 
         if Path(path).exists():
+
             return str(
                 Path(path)
             )
 
-    system_deno = shutil.which(
-        "deno"
-    )
+    # Try PATH
+    system_deno = shutil.which("deno")
 
     if system_deno:
         return system_deno
@@ -267,18 +147,14 @@ def get_deno_path():
 
 DENO_PATH = get_deno_path()
 
-DENO_READY = bool(
-    DENO_PATH
-)
+DENO_READY = bool(DENO_PATH)
 
 
 # ============================================================
 # COMMON YT-DLP OPTIONS
 # ============================================================
 
-def get_common_ytdlp_options(
-    progress_hook=None
-):
+def get_common_ytdlp_options(progress_hook=None):
 
     options = {
 
@@ -288,13 +164,12 @@ def get_common_ytdlp_options(
 
         "noplaylist": True,
 
-        # Allow yt-dlp to obtain the EJS components
-        # required by current YouTube extraction.
+        # Current YouTube extraction can require
+        # yt-dlp's external EJS components.
         "remote_components": [
             "ejs:github"
         ]
     }
-
 
     # --------------------------------------------------------
     # DENO
@@ -310,30 +185,15 @@ def get_common_ytdlp_options(
             }
         }
 
-
-    # --------------------------------------------------------
-    # YOUTUBE COOKIES
-    # --------------------------------------------------------
-
-    if COOKIE_FILE:
-
-        options["cookiefile"] = (
-            COOKIE_FILE
-        )
-
-
     # --------------------------------------------------------
     # PROGRESS HOOK
     # --------------------------------------------------------
 
     if progress_hook:
 
-        options[
-            "progress_hooks"
-        ] = [
+        options["progress_hooks"] = [
             progress_hook
         ]
-
 
     return options
 
@@ -342,17 +202,13 @@ def get_common_ytdlp_options(
 # FORMAT OPTIONS
 # ============================================================
 
-def get_format_options(
-    mode,
-    quality
-):
+def get_format_options(mode, quality):
 
     if not FFMPEG_READY:
 
         raise RuntimeError(
             "FFmpeg is not installed on this server."
         )
-
 
     # ========================================================
     # MP3
@@ -391,7 +247,6 @@ def get_format_options(
             "ffmpeg_location":
                 FFMPEG_PATH
         }
-
 
     # ========================================================
     # TV COMPATIBLE MP4
@@ -457,7 +312,6 @@ def get_format_options(
                 FFMPEG_PATH
         }
 
-
     # ========================================================
     # STANDARD MP4
     # ========================================================
@@ -475,7 +329,6 @@ def get_format_options(
         quality,
         720
     )
-
 
     return {
 
@@ -507,9 +360,7 @@ def get_format_options(
 # PROGRESS HOOK
 # ============================================================
 
-def create_progress_hook(
-    job_id
-):
+def create_progress_hook(job_id):
 
     def progress_hook(data):
 
@@ -518,11 +369,7 @@ def create_progress_hook(
             if job_id not in jobs:
                 return
 
-
-            status = data.get(
-                "status"
-            )
-
+            status = data.get("status")
 
             # ------------------------------------------------
             # DOWNLOADING
@@ -539,13 +386,11 @@ def create_progress_hook(
                     "total_bytes"
                 )
 
-
                 if not total:
 
                     total = data.get(
                         "total_bytes_estimate"
                     )
-
 
                 if total:
 
@@ -558,7 +403,6 @@ def create_progress_hook(
 
                     progress = 0
 
-
                 speed = data.get(
                     "speed"
                 )
@@ -567,9 +411,7 @@ def create_progress_hook(
                     "eta"
                 )
 
-
                 speed_text = ""
-
 
                 if speed:
 
@@ -583,9 +425,7 @@ def create_progress_hook(
                         f"{speed_mb:.2f} MiB/s"
                     )
 
-
                 eta_text = ""
-
 
                 if eta is not None:
 
@@ -600,7 +440,6 @@ def create_progress_hook(
                     eta_text = (
                         f"{minutes}:{seconds:02d}"
                     )
-
 
                 jobs[job_id].update({
 
@@ -623,7 +462,6 @@ def create_progress_hook(
                         eta_text
                 })
 
-
             # ------------------------------------------------
             # PROCESSING
             # ------------------------------------------------
@@ -642,11 +480,9 @@ def create_progress_hook(
                         "Processing video..."
                 })
 
-
         except Exception:
 
             pass
-
 
     return progress_hook
 
@@ -659,12 +495,10 @@ def find_downloaded_file():
 
     files = []
 
-
     for file in DOWNLOAD_DIR.iterdir():
 
         if not file.is_file():
             continue
-
 
         if file.suffix.lower() in [
 
@@ -678,14 +512,10 @@ def find_downloaded_file():
 
         ]:
 
-            files.append(
-                file
-            )
-
+            files.append(file)
 
     if not files:
         return None
-
 
     files.sort(
 
@@ -694,7 +524,6 @@ def find_downloaded_file():
 
         reverse=True
     )
-
 
     return files[0]
 
@@ -718,12 +547,10 @@ def video_info():
             or {}
         )
 
-
         url = (
             data.get("url")
             or ""
         ).strip()
-
 
         if not url:
 
@@ -734,18 +561,15 @@ def video_info():
 
             }), 400
 
-
         options = (
             get_common_ytdlp_options()
         )
-
 
         options.update({
 
             "skip_download":
                 True
         })
-
 
         with yt_dlp.YoutubeDL(
             options
@@ -758,25 +582,17 @@ def video_info():
                 download=False
             )
 
-
         duration_seconds = (
-            info.get(
-                "duration"
-            )
+            info.get("duration")
         )
 
-
-        duration_text = (
-            "Unknown"
-        )
-
+        duration_text = "Unknown"
 
         if duration_seconds:
 
             duration_seconds = int(
                 duration_seconds
             )
-
 
             hours = (
                 duration_seconds //
@@ -792,7 +608,6 @@ def video_info():
                 duration_seconds %
                 60
             )
-
 
             if hours:
 
@@ -810,7 +625,6 @@ def video_info():
                     f"{minutes}:"
                     f"{seconds:02d}"
                 )
-
 
         return jsonify({
 
@@ -845,7 +659,6 @@ def video_info():
                 )
         })
 
-
     except Exception as error:
 
         return jsonify({
@@ -875,24 +688,20 @@ def start_download():
             or {}
         )
 
-
         url = (
             data.get("url")
             or ""
         ).strip()
-
 
         mode = (
             data.get("mode")
             or "mp4"
         ).strip()
 
-
         quality = (
             data.get("quality")
             or "720p"
         ).strip()
-
 
         if not url:
 
@@ -903,14 +712,12 @@ def start_download():
 
             }), 400
 
-
         allowed_modes = [
 
             "mp4",
             "tv",
             "mp3"
         ]
-
 
         if mode not in allowed_modes:
 
@@ -921,7 +728,6 @@ def start_download():
 
             }), 400
 
-
         allowed_quality = [
 
             "480p",
@@ -929,11 +735,9 @@ def start_download():
             "1080p"
         ]
 
-
         if quality not in allowed_quality:
 
             quality = "720p"
-
 
         if not FFMPEG_READY:
 
@@ -944,7 +748,6 @@ def start_download():
 
             }), 500
 
-
         if not DENO_READY:
 
             return jsonify({
@@ -954,11 +757,9 @@ def start_download():
 
             }), 500
 
-
         job_id = str(
             uuid.uuid4()
         )
-
 
         jobs[job_id] = {
 
@@ -984,7 +785,6 @@ def start_download():
                 None
         }
 
-
         thread = threading.Thread(
 
             target=download_job,
@@ -1003,16 +803,13 @@ def start_download():
             daemon=True
         )
 
-
         thread.start()
-
 
         return jsonify({
 
             "job_id":
                 job_id
         })
-
 
     except Exception as error:
 
@@ -1029,13 +826,9 @@ def start_download():
 # ============================================================
 
 def download_job(
-
     job_id,
-
     url,
-
     mode,
-
     quality
 ):
 
@@ -1053,20 +846,17 @@ def download_job(
                 "Starting download..."
         })
 
-
         progress_hook = (
             create_progress_hook(
                 job_id
             )
         )
 
-
         options = (
             get_common_ytdlp_options(
                 progress_hook
             )
         )
-
 
         format_options = (
             get_format_options(
@@ -1075,11 +865,9 @@ def download_job(
             )
         )
 
-
         options.update(
             format_options
         )
-
 
         # ----------------------------------------------------
         # DOWNLOAD
@@ -1093,7 +881,6 @@ def download_job(
                 url
             ])
 
-
         # ----------------------------------------------------
         # FIND FILE
         # ----------------------------------------------------
@@ -1102,7 +889,6 @@ def download_job(
             find_downloaded_file()
         )
 
-
         if not downloaded_file:
 
             raise RuntimeError(
@@ -1110,7 +896,6 @@ def download_job(
                 "Download completed but "
                 "the output file could not be found."
             )
-
 
         # ----------------------------------------------------
         # COMPLETE
@@ -1137,35 +922,11 @@ def download_job(
                 ""
         })
 
-
     except Exception as error:
 
         error_message = str(
             error
         )
-
-
-        # Give the user a more useful message
-        # when cookies are missing.
-
-        if (
-            "Sign in to confirm"
-            in error_message
-            or
-            "not a bot"
-            in error_message.lower()
-        ):
-
-            if not COOKIE_FILE:
-
-                error_message = (
-
-                    "YouTube is asking the server "
-                    "to verify that it is not a bot. "
-                    "YOUTUBE_COOKIES has not been "
-                    "configured on the server."
-                )
-
 
         jobs[job_id].update({
 
@@ -1199,7 +960,6 @@ def job_status(job_id):
         job_id
     )
 
-
     if not job:
 
         return jsonify({
@@ -1211,7 +971,6 @@ def job_status(job_id):
                 "Download job not found."
 
         }), 404
-
 
     return jsonify({
 
@@ -1266,7 +1025,6 @@ def download_file(filename):
         filename
     )
 
-
     if not file_path.exists():
 
         return jsonify({
@@ -1275,7 +1033,6 @@ def download_file(filename):
                 "File not found."
 
         }), 404
-
 
     return send_from_directory(
 
@@ -1321,12 +1078,6 @@ def health():
         "deno_path":
             DENO_PATH,
 
-        # Do NOT expose the actual cookie contents.
-        "youtube_cookies":
-            bool(
-                COOKIE_FILE
-            ),
-
         "yt_dlp":
             yt_dlp.version.__version__
     })
@@ -1365,7 +1116,6 @@ def cleanup_old_files():
         60 * 60
     )
 
-
     try:
 
         for file in (
@@ -1375,15 +1125,12 @@ def cleanup_old_files():
             if not file.is_file():
                 continue
 
-
             try:
 
                 age = (
-
                     now -
                     file.stat().st_mtime
                 )
-
 
                 if age > max_age:
 
@@ -1391,11 +1138,9 @@ def cleanup_old_files():
                         missing_ok=True
                     )
 
-
             except Exception:
 
                 pass
-
 
     except Exception:
 
@@ -1425,13 +1170,6 @@ if __name__ == "__main__":
         "READY"
         if DENO_READY
         else "NOT FOUND"
-    )
-
-    print(
-        "YouTube cookies:",
-        "CONFIGURED"
-        if COOKIE_FILE
-        else "NOT CONFIGURED"
     )
 
     print(
