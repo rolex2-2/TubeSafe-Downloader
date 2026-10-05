@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-# Install FFmpeg and tools needed to install Deno
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
@@ -8,7 +7,6 @@ RUN apt-get update \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Deno
 RUN curl -fsSL https://deno.land/install.sh | sh
 
 ENV DENO_INSTALL=/root/.deno
